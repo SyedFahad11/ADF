@@ -63,7 +63,7 @@
 			"type": "string",
 			"defaultValue": "sa"
 		},
-		"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
+		"Trigger_for_dedup_script_properties_typeProperties_scope": {
 			"type": "string",
 			"defaultValue": "/subscriptions/222fa1bd-d3d2-4bd3-9128-4246e6d53265/resourceGroups/ADF-Solution/providers/Microsoft.Storage/storageAccounts/adlsforcsv"
 		}
@@ -1420,7 +1420,17 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/Trigger_For_Dedup_Script')]",
+			"name": "[concat(parameters('factoryName'), '/SelfHosted1')]",
+			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "SelfHosted",
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Trigger_for_dedup_script')]",
 			"type": "Microsoft.DataFactory/factories/triggers",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -1439,8 +1449,8 @@
 				"typeProperties": {
 					"blobPathBeginsWith": "/csvfiles/blobs/",
 					"blobPathEndsWith": "_orders.csv",
-					"ignoreEmptyBlobs": true,
-					"scope": "[parameters('Trigger_For_Dedup_Script_properties_typeProperties_scope')]",
+					"ignoreEmptyBlobs": false,
+					"scope": "[parameters('Trigger_for_dedup_script_properties_typeProperties_scope')]",
 					"events": [
 						"Microsoft.Storage.BlobCreated"
 					]
@@ -1449,16 +1459,6 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/pipelines/ADLS To Snowflake with Dedup and Scripts')]"
 			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/SelfHosted1')]",
-			"type": "Microsoft.DataFactory/factories/integrationRuntimes",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"type": "SelfHosted",
-				"typeProperties": {}
-			},
-			"dependsOn": []
 		}
 	]
 }

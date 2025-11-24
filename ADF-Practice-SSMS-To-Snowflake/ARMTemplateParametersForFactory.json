@@ -47,7 +47,7 @@
 		"SqlServerLinkedService_properties_typeProperties_userName": {
 			"value": "sa"
 		},
-		"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
+		"Trigger_for_dedup_script_properties_typeProperties_scope": {
 			"value": "/subscriptions/222fa1bd-d3d2-4bd3-9128-4246e6d53265/resourceGroups/ADF-Solution/providers/Microsoft.Storage/storageAccounts/adlsforcsv"
 		}
 	}

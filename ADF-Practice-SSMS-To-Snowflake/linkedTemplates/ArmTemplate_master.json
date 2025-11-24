@@ -63,7 +63,7 @@
 			"type": "string",
 			"defaultValue": "sa"
 		},
-		"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
+		"Trigger_for_dedup_script_properties_typeProperties_scope": {
 			"type": "string",
 			"defaultValue": "/subscriptions/222fa1bd-d3d2-4bd3-9128-4246e6d53265/resourceGroups/ADF-Solution/providers/Microsoft.Storage/storageAccounts/adlsforcsv"
 		},
@@ -154,8 +154,8 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
-					"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
-						"value": "[parameters('Trigger_For_Dedup_Script_properties_typeProperties_scope')]"
+					"Trigger_for_dedup_script_properties_typeProperties_scope": {
+						"value": "[parameters('Trigger_for_dedup_script_properties_typeProperties_scope')]"
 					}
 				}
 			},
