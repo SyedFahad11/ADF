@@ -1,0 +1,36 @@
+{
+	"name": "SourceDatasetForBlobToSnowflake_v2",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedServiceForBlobStorage",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"table_name": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": {
+					"value": "@concat(dataset().table_name,'.csv')",
+					"type": "Expression"
+				},
+				"container": "wideworldimporters"
+			},
+			"columnDelimiter": ",",
+			"rowDelimiter": {
+				"value": "\r\n",
+				"type": "Expression"
+			},
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

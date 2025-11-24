@@ -1,0 +1,48 @@
+{
+	"name": "SinkDatasetForADLSToSnowflake",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "SnowflakeConnector",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SnowflakeV2Table",
+		"schema": [
+			{
+				"name": "ORDER_ID",
+				"type": "NUMBER",
+				"precision": 38,
+				"scale": 0
+			},
+			{
+				"name": "CUSTOMER_ID",
+				"type": "NUMBER",
+				"precision": 38,
+				"scale": 0
+			},
+			{
+				"name": "ORDER_DATE",
+				"type": "DATE",
+				"precision": 0,
+				"scale": 0
+			},
+			{
+				"name": "AMOUNT",
+				"type": "NUMBER",
+				"precision": 38,
+				"scale": 0
+			},
+			{
+				"name": "STATUS",
+				"type": "VARCHAR",
+				"precision": 0,
+				"scale": 0
+			}
+		],
+		"typeProperties": {
+			"schema": "LAND",
+			"table": "TEMP"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

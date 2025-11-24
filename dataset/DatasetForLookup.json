@@ -1,0 +1,24 @@
+{
+	"name": "DatasetForLookup",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedServiceForBlobStorage_AccountKey",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "lookup2.csv",
+				"container": "wideworldimporters"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

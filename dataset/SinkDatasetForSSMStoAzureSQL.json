@@ -1,0 +1,41 @@
+{
+	"name": "SinkDatasetForSSMStoAzureSQL",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlDatabaseLinkedService_SQLAuthentication",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "order_id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "customer_id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "order_date",
+				"type": "date"
+			},
+			{
+				"name": "amount",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "status",
+				"type": "varchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "initial_orders"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

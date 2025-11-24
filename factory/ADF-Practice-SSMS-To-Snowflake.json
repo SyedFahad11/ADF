@@ -1,0 +1,9 @@
+{
+	"name": "ADF-Practice-SSMS-To-Snowflake",
+	"location": "southeastasia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "bfafe409-947c-4e64-93dc-71898b149d08",
+		"tenantId": "5c90ddac-41c6-456f-8ac6-8bc0facfe185"
+	}
+}
