@@ -1,0 +1,167 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "ADF-Practice-SSMS-To-Snowflake"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'AzureSqlDatabaseLinkedService_SQLAuthentication'"
+		},
+		"LinkedServiceForBlobStorage_AccountKey_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'LinkedServiceForBlobStorage_AccountKey'"
+		},
+		"LinkedService_for_Script_activity_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'LinkedService_for_Script_activity'"
+		},
+		"SnowflakeConnector_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'SnowflakeConnector'"
+		},
+		"SqlServerLinkedService_password": {
+			"type": "secureString",
+			"metadata": "Secure string for 'password' of 'SqlServerLinkedService'"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "retailsa.database.windows.net"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "WideWorldImporters"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "fahad"
+		},
+		"LinkedServiceForBlobStorage_sasUri": {
+			"type": "secureString",
+			"metadata": "Secure string for 'sasUri' of 'LinkedServiceForBlobStorage'"
+		},
+		"LinkedService_for_Script_activity_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://adlsforcsv.dfs.core.windows.net/"
+		},
+		"SnowflakeConnector_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "etlworks_csv"
+		},
+		"SqlServerLinkedService_properties_typeProperties_server": {
+			"type": "string",
+			"defaultValue": "PTDELL0026\\SQLEXPRESS"
+		},
+		"SqlServerLinkedService_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "WideWorldImporters"
+		},
+		"SqlServerLinkedService_properties_typeProperties_userName": {
+			"type": "string",
+			"defaultValue": "sa"
+		},
+		"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
+			"type": "string",
+			"defaultValue": "/subscriptions/222fa1bd-d3d2-4bd3-9128-4246e6d53265/resourceGroups/ADF-Solution/providers/Microsoft.Storage/storageAccounts/adlsforcsv"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "ADF-Practice-SSMS-To-Snowflake_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"AzureSqlDatabaseLinkedService_SQLAuthentication_password": {
+						"value": "[parameters('AzureSqlDatabaseLinkedService_SQLAuthentication_password')]"
+					},
+					"LinkedServiceForBlobStorage_AccountKey_connectionString": {
+						"value": "[parameters('LinkedServiceForBlobStorage_AccountKey_connectionString')]"
+					},
+					"LinkedService_for_Script_activity_accountKey": {
+						"value": "[parameters('LinkedService_for_Script_activity_accountKey')]"
+					},
+					"SnowflakeConnector_password": {
+						"value": "[parameters('SnowflakeConnector_password')]"
+					},
+					"SqlServerLinkedService_password": {
+						"value": "[parameters('SqlServerLinkedService_password')]"
+					},
+					"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_server": {
+						"value": "[parameters('AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_server')]"
+					},
+					"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_database": {
+						"value": "[parameters('AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_database')]"
+					},
+					"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_userName": {
+						"value": "[parameters('AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_userName')]"
+					},
+					"LinkedServiceForBlobStorage_sasUri": {
+						"value": "[parameters('LinkedServiceForBlobStorage_sasUri')]"
+					},
+					"LinkedService_for_Script_activity_properties_typeProperties_url": {
+						"value": "[parameters('LinkedService_for_Script_activity_properties_typeProperties_url')]"
+					},
+					"SnowflakeConnector_properties_typeProperties_database": {
+						"value": "[parameters('SnowflakeConnector_properties_typeProperties_database')]"
+					},
+					"SqlServerLinkedService_properties_typeProperties_server": {
+						"value": "[parameters('SqlServerLinkedService_properties_typeProperties_server')]"
+					},
+					"SqlServerLinkedService_properties_typeProperties_database": {
+						"value": "[parameters('SqlServerLinkedService_properties_typeProperties_database')]"
+					},
+					"SqlServerLinkedService_properties_typeProperties_userName": {
+						"value": "[parameters('SqlServerLinkedService_properties_typeProperties_userName')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "ADF-Practice-SSMS-To-Snowflake_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
+						"value": "[parameters('Trigger_For_Dedup_Script_properties_typeProperties_scope')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'ADF-Practice-SSMS-To-Snowflake_ArmTemplate_0')]"
+			]
+		}
+	]
+}

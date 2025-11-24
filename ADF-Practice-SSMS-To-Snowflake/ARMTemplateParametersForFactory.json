@@ -1,0 +1,54 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "ADF-Practice-SSMS-To-Snowflake"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_password": {
+			"value": ""
+		},
+		"LinkedServiceForBlobStorage_AccountKey_connectionString": {
+			"value": ""
+		},
+		"LinkedService_for_Script_activity_accountKey": {
+			"value": ""
+		},
+		"SnowflakeConnector_password": {
+			"value": ""
+		},
+		"SqlServerLinkedService_password": {
+			"value": ""
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_server": {
+			"value": "retailsa.database.windows.net"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_database": {
+			"value": "WideWorldImporters"
+		},
+		"AzureSqlDatabaseLinkedService_SQLAuthentication_properties_typeProperties_userName": {
+			"value": "fahad"
+		},
+		"LinkedServiceForBlobStorage_sasUri": {
+			"value": ""
+		},
+		"LinkedService_for_Script_activity_properties_typeProperties_url": {
+			"value": "https://adlsforcsv.dfs.core.windows.net/"
+		},
+		"SnowflakeConnector_properties_typeProperties_database": {
+			"value": "etlworks_csv"
+		},
+		"SqlServerLinkedService_properties_typeProperties_server": {
+			"value": "PTDELL0026\\SQLEXPRESS"
+		},
+		"SqlServerLinkedService_properties_typeProperties_database": {
+			"value": "WideWorldImporters"
+		},
+		"SqlServerLinkedService_properties_typeProperties_userName": {
+			"value": "sa"
+		},
+		"Trigger_For_Dedup_Script_properties_typeProperties_scope": {
+			"value": "/subscriptions/222fa1bd-d3d2-4bd3-9128-4246e6d53265/resourceGroups/ADF-Solution/providers/Microsoft.Storage/storageAccounts/adlsforcsv"
+		}
+	}
+}
