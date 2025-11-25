@@ -1,0 +1,80 @@
+{
+	"name": "Deduplication",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Dataset_For_Script_Activity",
+						"type": "DatasetReference"
+					},
+					"name": "ADLS"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "SinkDatasetForADLSToSnowflake",
+						"type": "DatasetReference"
+					},
+					"name": "Snowflake"
+				}
+			],
+			"transformations": [
+				{
+					"name": "RemoveDuplicates"
+				},
+				{
+					"name": "RankAs1"
+				},
+				{
+					"name": "select"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          order_id as string,",
+				"          customer_id as string,",
+				"          order_date as string,",
+				"          amount as string,",
+				"          status as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> ADLS",
+				"ADLS window(over(order_id,",
+				"          status),",
+				"     desc(order_date, true),",
+				"     rank = rowNumber()) ~> RemoveDuplicates",
+				"RemoveDuplicates filter(rank==1) ~> RankAs1",
+				"RankAs1 select(mapColumn(",
+				"          order_id,",
+				"          customer_id,",
+				"          order_date,",
+				"          amount,",
+				"          status",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select",
+				"select sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          ORDER_ID as decimal(38,0),",
+				"          CUSTOMER_ID as decimal(38,0),",
+				"          ORDER_DATE as date,",
+				"          AMOUNT as decimal(38,0),",
+				"          STATUS as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true) ~> Snowflake"
+			]
+		}
+	}
+}
