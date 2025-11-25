@@ -6,7 +6,7 @@
 		"pipelines": [
 			{
 				"pipelineReference": {
-					"referenceName": "ADLS To Snowflake with Dedup and Scripts",
+					"referenceName": "5-ADLS To Snowflake with Dedup and Scripts",
 					"type": "PipelineReference"
 				}
 			}

@@ -1,5 +1,5 @@
 {
-	"name": "ADLS To Snowflake with Dedup and Scripts",
+	"name": "5-ADLS To Snowflake with Dedup and Scripts",
 	"properties": {
 		"activities": [
 			{
@@ -94,7 +94,7 @@
 				}
 			},
 			{
-				"name": "Data flow1",
+				"name": "Dedup Data flow",
 				"type": "ExecuteDataFlow",
 				"dependsOn": [],
 				"policy": {
