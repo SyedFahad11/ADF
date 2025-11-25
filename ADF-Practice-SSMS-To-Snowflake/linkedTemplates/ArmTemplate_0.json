@@ -211,6 +211,7 @@
 						"fileSystem": "csvfiles"
 					},
 					"columnDelimiter": ",",
+					"rowDelimiter": "\n",
 					"escapeChar": "\\",
 					"firstRowAsHeader": true,
 					"quoteChar": "\""
@@ -645,115 +646,6 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/ADLS To Snowflake with Dedup and Scripts')]",
-			"type": "Microsoft.DataFactory/factories/pipelines",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"activities": [
-					{
-						"name": "Copy data from ADLS to Snowflake",
-						"type": "Copy",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "DelimitedTextSource",
-								"storeSettings": {
-									"type": "AzureBlobFSReadSettings",
-									"recursive": true,
-									"wildcardFileName": "*_orders.csv",
-									"enablePartitionDiscovery": false
-								},
-								"formatSettings": {
-									"type": "DelimitedTextReadSettings"
-								}
-							},
-							"sink": {
-								"type": "SnowflakeV2Sink",
-								"importSettings": {
-									"type": "SnowflakeImportCopyCommand"
-								}
-							},
-							"enableStaging": true,
-							"stagingSettings": {
-								"linkedServiceName": {
-									"referenceName": "LinkedServiceForBlobStorage",
-									"type": "LinkedServiceReference"
-								},
-								"path": ""
-							}
-						},
-						"inputs": [
-							{
-								"referenceName": "Dataset_For_Script_Activity",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "SinkDatasetForADLSToSnowflake",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					},
-					{
-						"name": "Deduplication",
-						"type": "Script",
-						"dependsOn": [
-							{
-								"activity": "Copy data from ADLS to Snowflake",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"linkedServiceName": {
-							"referenceName": "SnowflakeConnector",
-							"type": "LinkedServiceReference"
-						},
-						"typeProperties": {
-							"scripts": [
-								{
-									"type": "Query",
-									"text": "MERGE INTO ETLWORKS_CSV.CONSUMPTION.CONS  AS tgt\nUSING (\n    SELECT *\n    FROM (\n        SELECT \n            $1::INT AS order_id,\n            $2::INT AS customer_id,\n            $3::DATE AS order_date,\n            $4::FLOAT AS amount,\n            $5::STRING AS status,\n            ROW_NUMBER() OVER (PARTITION BY $1, $5 ORDER BY $3 DESC) AS rn\n        FROM ETLWORKS_CSV.LAND.TEMP\n    )\n    WHERE rn = 1\n) AS src\nON tgt.order_id = src.order_id AND tgt.status = src.status\nWHEN MATCHED \nAND ( tgt.customer_id <> src.customer_id\n        OR\n        tgt.order_date <> src.order_date\n        OR\n        tgt.amount <> src.amount\n    )\nTHEN\n    UPDATE SET\n        tgt.customer_id = src.customer_id,\n        tgt.order_date = src.order_date,\n        tgt.amount = src.amount\nWHEN NOT MATCHED THEN\n    INSERT (order_id, customer_id, order_date, amount, status)\n    VALUES (src.order_id, src.customer_id, src.order_date, src.amount, src.status);\n\n"
-								}
-							],
-							"scriptBlockExecutionTimeout": "02:00:00",
-							"treatDecimalAsString": true
-						}
-					}
-				],
-				"policy": {
-					"elapsedTimeMetric": {}
-				},
-				"annotations": [],
-				"lastPublishTime": "2025-11-24T11:48:38Z"
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
-				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]",
-				"[concat(variables('factoryId'), '/linkedServices/SnowflakeConnector')]",
-				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
-			]
-		},
-		{
 			"name": "[concat(parameters('factoryName'), '/SourceSQLServer')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -830,6 +722,41 @@
 				"typeProperties": {
 					"schema": "dbo",
 					"table": "initial_orders"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/SqlServerLinkedService')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SourceSQLServer_v2')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "SqlServerLinkedService",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"table_name": {
+						"type": "string"
+					},
+					"schema_name": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "SqlServerTable",
+				"schema": [],
+				"typeProperties": {
+					"schema": {
+						"value": "@dataset().schema_name",
+						"type": "Expression"
+					},
+					"table": {
+						"value": "@dataset().table_name",
+						"type": "Expression"
+					}
 				}
 			},
 			"dependsOn": [
