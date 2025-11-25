@@ -73,7 +73,14 @@
 				"     format: 'table',",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true,",
-				"     stageInsert: true) ~> Snowflake"
+				"     stageInsert: true,",
+				"     mapColumn(",
+				"          ORDER_ID = order_id,",
+				"          CUSTOMER_ID = customer_id,",
+				"          ORDER_DATE = order_date,",
+				"          AMOUNT = amount,",
+				"          STATUS = status",
+				"     )) ~> Snowflake"
 			]
 		}
 	}
