@@ -10,6 +10,13 @@
 						"type": "DatasetReference"
 					},
 					"name": "ADLS"
+				},
+				{
+					"dataset": {
+						"referenceName": "SinkDatasetForADLSToSnowflake",
+						"type": "DatasetReference"
+					},
+					"name": "SnowflakeSource"
 				}
 			],
 			"sinks": [
@@ -18,7 +25,7 @@
 						"referenceName": "SinkDatasetForADLSToSnowflake",
 						"type": "DatasetReference"
 					},
-					"name": "Snowflake"
+					"name": "SnowflakeSink"
 				}
 			],
 			"transformations": [
@@ -30,11 +37,14 @@
 				},
 				{
 					"name": "select"
+				},
+				{
+					"name": "Merge"
 				}
 			],
 			"scriptLines": [
 				"source(output(",
-				"          order_id as string,",
+				"          order_id as integer,",
 				"          customer_id as string,",
 				"          order_date as string,",
 				"          amount as string,",
@@ -43,6 +53,16 @@
 				"     allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     ignoreNoFilesFound: false) ~> ADLS",
+				"source(output(",
+				"          ORDER_ID as decimal(38,0),",
+				"          CUSTOMER_ID as decimal(38,0),",
+				"          ORDER_DATE as date,",
+				"          AMOUNT as decimal(38,0),",
+				"          STATUS as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SnowflakeSource",
 				"ADLS window(over(order_id,",
 				"          status),",
 				"     desc(order_date, true),",
@@ -57,7 +77,11 @@
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true) ~> select",
-				"select sink(allowSchemaDrift: true,",
+				"select, SnowflakeSource exists(select@order_id == SnowflakeSource@ORDER_ID",
+				"     && select@status == SnowflakeSource@STATUS,",
+				"     negate:true,",
+				"     broadcast: 'auto')~> Merge",
+				"Merge sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
 				"          ORDER_ID as decimal(38,0),",
@@ -80,7 +104,7 @@
 				"          ORDER_DATE = order_date,",
 				"          AMOUNT = amount,",
 				"          STATUS = status",
-				"     )) ~> Snowflake"
+				"     )) ~> SnowflakeSink"
 			]
 		}
 	}
