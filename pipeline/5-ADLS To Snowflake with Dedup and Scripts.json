@@ -107,7 +107,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"dataflow": {
-						"referenceName": "Deduplication",
+						"referenceName": "Deduplication-And-Merge",
 						"type": "DataFlowReference"
 					},
 					"compute": {
