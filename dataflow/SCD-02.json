@@ -68,6 +68,9 @@
 				},
 				{
 					"name": "SELECT2"
+				},
+				{
+					"name": "derivedColumn1"
 				}
 			],
 			"scriptLines": [
@@ -131,7 +134,7 @@
 				"     ignoreSpaces: false,",
 				"     broadcast: 'both')~> Insert",
 				"Insert filter(isNull(SnowflakeSource@CUSTOMER_ID)==true() || (HashSRC@hash!=HashTGT@hash)) ~> InORUp",
-				"InORUp select(mapColumn(",
+				"derivedColumn1 select(mapColumn(",
 				"          CUSTOMER_ID = ADLS@customer_id,",
 				"          CUSTOMER_NAME = ADLS@customer_name,",
 				"          CUSTOMER_ADDRESS = ADLS@customer_address,",
@@ -143,6 +146,9 @@
 				"     ),",
 				"     skipDuplicateMapInputs: true,",
 				"     skipDuplicateMapOutputs: true) ~> SELECT2",
+				"InORUp derive(EFFECTIVE_FROM_DT = iifNull(last_updated_ts,currentDate()),",
+				"          IS_CURRENT = 1,",
+				"          EFFECTIVE_TO_DT = toDate('9999-12-31')) ~> derivedColumn1",
 				"Alter sink(allowSchemaDrift: true,",
 				"     validateSchema: false,",
 				"     input(",
