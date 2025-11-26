@@ -1,0 +1,74 @@
+{
+	"name": "SCD-02",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Dataset_For_Script_Activity",
+						"type": "DatasetReference"
+					},
+					"name": "ADLS"
+				},
+				{
+					"dataset": {
+						"referenceName": "SinkDatasetForADLSToSnowflake",
+						"type": "DatasetReference"
+					},
+					"name": "SnowflakeSource"
+				}
+			],
+			"sinks": [],
+			"transformations": [
+				{
+					"name": "HashSRC"
+				},
+				{
+					"name": "HashTGT"
+				},
+				{
+					"name": "Updates"
+				},
+				{
+					"name": "CurrentActive"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          customer_id as string,",
+				"          customer_name as string,",
+				"          customer_address as string,",
+				"          phone as string,",
+				"          email as string,",
+				"          last_updated_ts as timestamp 'yyyy-MM-dd\\'T\\'HH:mm:ss\\'Z\\'',",
+				"          op_type as string",
+				"     ),",
+				"     allowSchemaDrift: false,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     wildcardPaths:['customers_*.csv']) ~> ADLS",
+				"source(output(",
+				"          CUSTOMER_SK as decimal(38,0),",
+				"          CUSTOMER_ID as string,",
+				"          CUSTOMER_NAME as string,",
+				"          CUSTOMER_ADDRESS as string,",
+				"          PHONE as string,",
+				"          EMAIL as string,",
+				"          EFFECTIVE_FROM_DT as date,",
+				"          EFFECTIVE_TO_DT as date,",
+				"          IS_CURRENT as boolean",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     format: 'table') ~> SnowflakeSource",
+				"ADLS derive(hash = md5( customer_name,customer_address,phone,email)) ~> HashSRC",
+				"CurrentActive derive(hash = md5(CUSTOMER_NAME,CUSTOMER_ADDRESS,PHONE,EMAIL)) ~> HashTGT",
+				"HashSRC, HashTGT exists((ADLS@customer_id==SnowflakeSource@CUSTOMER_ID) && (HashSRC@hash!=HashTGT@hash),",
+				"     negate:false,",
+				"     broadcast: 'auto')~> Updates",
+				"SnowflakeSource filter(IS_CURRENT==true()) ~> CurrentActive"
+			]
+		}
+	}
+}
