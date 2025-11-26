@@ -1,0 +1,594 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name"
+		},
+		"LinkedServiceForBlobStorage": {
+			"type": "string"
+		},
+		"SnowflakeConnector": {
+			"type": "string"
+		},
+		"LinkedService_for_Script_activity": {
+			"type": "string"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/5-ADLS To Snowflake with Dedup and Scripts')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data from ADLS to Snowflake",
+						"type": "Copy",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "*_orders.csv",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "SnowflakeV2Sink",
+								"importSettings": {
+									"type": "SnowflakeImportCopyCommand"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "[parameters('LinkedServiceForBlobStorage')]",
+									"type": "LinkedServiceReference"
+								},
+								"path": ""
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "Dataset_For_Script_Activity",
+								"type": "DatasetReference"
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							}
+						]
+					},
+					{
+						"name": "Deduplication",
+						"type": "Script",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [
+							{
+								"activity": "Copy data from ADLS to Snowflake",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "[parameters('SnowflakeConnector')]",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": "MERGE INTO ETLWORKS_CSV.CONSUMPTION.CONS  AS tgt\nUSING (\n    SELECT *\n    FROM (\n        SELECT \n            $1::INT AS order_id,\n            $2::INT AS customer_id,\n            $3::DATE AS order_date,\n            $4::FLOAT AS amount,\n            $5::STRING AS status,\n            ROW_NUMBER() OVER (PARTITION BY $1, $5 ORDER BY $3 DESC) AS rn\n        FROM ETLWORKS_CSV.LAND.TEMP\n    )\n    WHERE rn = 1\n) AS src\nON tgt.order_id = src.order_id AND tgt.status = src.status\nWHEN MATCHED \nAND ( tgt.customer_id <> src.customer_id\n        OR\n        tgt.order_date <> src.order_date\n        OR\n        tgt.amount <> src.amount\n    )\nTHEN\n    UPDATE SET\n        tgt.customer_id = src.customer_id,\n        tgt.order_date = src.order_date,\n        tgt.amount = src.amount\nWHEN NOT MATCHED THEN\n    INSERT (order_id, customer_id, order_date, amount, status)\n    VALUES (src.order_id, src.customer_id, src.order_date, src.amount, src.status);\n\n"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00",
+							"treatDecimalAsString": true
+						}
+					},
+					{
+						"name": "Dedup Data flow",
+						"type": "ExecuteDataFlow",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Deduplication-And-Merge",
+								"type": "DataFlowReference"
+							},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "SCD-02",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "SCD-02",
+								"type": "DataFlowReference"
+							},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"annotations": [],
+				"lastPublishTime": "2025-11-24T11:48:38Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]",
+				"[concat(variables('factoryId'), '/dataflows/Deduplication-And-Merge')]",
+				"[concat(variables('factoryId'), '/dataflows/SCD-02')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dataset_For_Script_Activity')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('LinkedService_for_Script_activity')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": "customers_1.csv",
+						"fileSystem": "csvfiles"
+					},
+					"columnDelimiter": ",",
+					"rowDelimiter": "\n",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "order_id",
+						"type": "String"
+					},
+					{
+						"name": "customer_id",
+						"type": "String"
+					},
+					{
+						"name": "order_date",
+						"type": "String"
+					},
+					{
+						"name": "amount",
+						"type": "String"
+					},
+					{
+						"name": "status",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SinkDatasetForADLSToSnowflake')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "[parameters('SnowflakeConnector')]",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "SnowflakeV2Table",
+				"schema": [
+					{
+						"name": "ORDER_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "CUSTOMER_ID",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "ORDER_DATE",
+						"type": "DATE",
+						"precision": 0,
+						"scale": 0
+					},
+					{
+						"name": "AMOUNT",
+						"type": "NUMBER",
+						"precision": 38,
+						"scale": 0
+					},
+					{
+						"name": "STATUS",
+						"type": "VARCHAR",
+						"precision": 0,
+						"scale": 0
+					}
+				],
+				"typeProperties": {
+					"schema": "LAND",
+					"table": "DIM_CUSTOMER"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Deduplication-And-Merge')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Dataset_For_Script_Activity",
+								"type": "DatasetReference"
+							},
+							"name": "ADLS"
+						},
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SnowflakeSource"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SnowflakeSink"
+						}
+					],
+					"transformations": [
+						{
+							"name": "RemoveDuplicates"
+						},
+						{
+							"name": "RankAs1"
+						},
+						{
+							"name": "select"
+						},
+						{
+							"name": "Merge"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          order_id as integer,",
+						"          customer_id as string,",
+						"          order_date as string,",
+						"          amount as string,",
+						"          status as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     wildcardPaths:['*_orders.csv']) ~> ADLS",
+						"source(output(",
+						"          ORDER_ID as decimal(38,0),",
+						"          CUSTOMER_ID as decimal(38,0),",
+						"          ORDER_DATE as date,",
+						"          AMOUNT as decimal(38,0),",
+						"          STATUS as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> SnowflakeSource",
+						"ADLS window(over(order_id,",
+						"          status),",
+						"     desc(order_date, true),",
+						"     rank = rowNumber()) ~> RemoveDuplicates",
+						"RemoveDuplicates filter(rank==1) ~> RankAs1",
+						"RankAs1 select(mapColumn(",
+						"          order_id,",
+						"          customer_id,",
+						"          order_date,",
+						"          amount,",
+						"          status",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select",
+						"select, SnowflakeSource exists(select@order_id == SnowflakeSource@ORDER_ID",
+						"     && select@status == SnowflakeSource@STATUS,",
+						"     negate:true,",
+						"     broadcast: 'auto')~> Merge",
+						"Merge sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          ORDER_ID as decimal(38,0),",
+						"          CUSTOMER_ID as decimal(38,0),",
+						"          ORDER_DATE as date,",
+						"          AMOUNT as decimal(38,0),",
+						"          STATUS as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true,",
+						"     mapColumn(",
+						"          ORDER_ID = order_id,",
+						"          CUSTOMER_ID = customer_id,",
+						"          ORDER_DATE = order_date,",
+						"          AMOUNT = amount,",
+						"          STATUS = status",
+						"     )) ~> SnowflakeSink"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SCD-02')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Dataset_For_Script_Activity",
+								"type": "DatasetReference"
+							},
+							"name": "ADLS"
+						},
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SnowflakeSource"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SinkExpires"
+						},
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SinkInserts"
+						}
+					],
+					"transformations": [
+						{
+							"name": "HashSRC"
+						},
+						{
+							"name": "HashTGT"
+						},
+						{
+							"name": "CurrentActive"
+						},
+						{
+							"name": "Alter"
+						},
+						{
+							"name": "NewCols"
+						},
+						{
+							"name": "Expire"
+						},
+						{
+							"name": "RemoveNULLS"
+						},
+						{
+							"name": "SELECT1"
+						},
+						{
+							"name": "Insert"
+						},
+						{
+							"name": "InORUp"
+						},
+						{
+							"name": "SELECT2"
+						},
+						{
+							"name": "derivedColumn1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          customer_id as string,",
+						"          customer_name as string,",
+						"          customer_address as string,",
+						"          phone as string,",
+						"          email as string,",
+						"          last_updated_ts as timestamp 'yyyy-MM-dd\\'T\\'HH:mm:ss\\'Z\\'',",
+						"          op_type as string",
+						"     ),",
+						"     allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     wildcardPaths:['customers_*.csv']) ~> ADLS",
+						"source(output(",
+						"          CUSTOMER_SK as decimal(38,0),",
+						"          CUSTOMER_ID as string,",
+						"          CUSTOMER_NAME as string,",
+						"          CUSTOMER_ADDRESS as string,",
+						"          PHONE as string,",
+						"          EMAIL as string,",
+						"          EFFECTIVE_FROM_DT as date,",
+						"          EFFECTIVE_TO_DT as date,",
+						"          IS_CURRENT as boolean",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> SnowflakeSource",
+						"ADLS derive(hash = md5( customer_name,customer_address,phone,email)) ~> HashSRC",
+						"CurrentActive derive(hash = md5(CUSTOMER_NAME,CUSTOMER_ADDRESS,PHONE,EMAIL)) ~> HashTGT",
+						"SnowflakeSource filter(IS_CURRENT==true()) ~> CurrentActive",
+						"SELECT1 alterRow(updateIf(1==1)) ~> Alter",
+						"RemoveNULLS derive(IS_CURRENT = 0,",
+						"          EFFECTIVE_TO_DT = toDate(last_updated_ts)) ~> NewCols",
+						"HashTGT, HashSRC join(SnowflakeSource@CUSTOMER_ID == ADLS@customer_id",
+						"     && HashTGT@hash != HashSRC@hash,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'both')~> Expire",
+						"Expire filter(isNull(HashSRC@hash)==false()) ~> RemoveNULLS",
+						"NewCols select(mapColumn(",
+						"          CUSTOMER_SK,",
+						"          CUSTOMER_ID = SnowflakeSource@CUSTOMER_ID,",
+						"          CUSTOMER_NAME = SnowflakeSource@CUSTOMER_NAME,",
+						"          CUSTOMER_ADDRESS = SnowflakeSource@CUSTOMER_ADDRESS,",
+						"          PHONE = SnowflakeSource@PHONE,",
+						"          EMAIL = SnowflakeSource@EMAIL,",
+						"          EFFECTIVE_FROM_DT,",
+						"          EFFECTIVE_TO_DT,",
+						"          IS_CURRENT",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SELECT1",
+						"HashSRC, HashTGT join(ADLS@customer_id == SnowflakeSource@CUSTOMER_ID",
+						"     && true() == IS_CURRENT,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'both')~> Insert",
+						"Insert filter(isNull(SnowflakeSource@CUSTOMER_ID)==true() || (HashSRC@hash!=HashTGT@hash)) ~> InORUp",
+						"derivedColumn1 select(mapColumn(",
+						"          CUSTOMER_ID = ADLS@customer_id,",
+						"          CUSTOMER_NAME = ADLS@customer_name,",
+						"          CUSTOMER_ADDRESS = ADLS@customer_address,",
+						"          PHONE = ADLS@phone,",
+						"          EMAIL = ADLS@email,",
+						"          EFFECTIVE_FROM_DT,",
+						"          EFFECTIVE_TO_DT,",
+						"          IS_CURRENT",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SELECT2",
+						"InORUp derive(EFFECTIVE_FROM_DT = iifNull(last_updated_ts,currentDate()),",
+						"          IS_CURRENT = 1,",
+						"          EFFECTIVE_TO_DT = toDate('9999-12-31')) ~> derivedColumn1",
+						"Alter sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          ORDER_ID as decimal(38,0),",
+						"          CUSTOMER_ID as decimal(38,0),",
+						"          ORDER_DATE as date,",
+						"          AMOUNT as decimal(38,0),",
+						"          STATUS as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:false,",
+						"     updateable:true,",
+						"     upsertable:false,",
+						"     keys:['CUSTOMER_SK'],",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true) ~> SinkExpires",
+						"SELECT2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          ORDER_ID as decimal(38,0),",
+						"          CUSTOMER_ID as decimal(38,0),",
+						"          ORDER_DATE as date,",
+						"          AMOUNT as decimal(38,0),",
+						"          STATUS as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true) ~> SinkInserts"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]"
+			]
+		}
+	]
+}
