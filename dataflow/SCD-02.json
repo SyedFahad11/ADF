@@ -19,7 +19,22 @@
 					"name": "SnowflakeSource"
 				}
 			],
-			"sinks": [],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "SinkDatasetForADLSToSnowflake",
+						"type": "DatasetReference"
+					},
+					"name": "SinkExpires"
+				},
+				{
+					"dataset": {
+						"referenceName": "SinkDatasetForADLSToSnowflake",
+						"type": "DatasetReference"
+					},
+					"name": "SinkInserts"
+				}
+			],
 			"transformations": [
 				{
 					"name": "HashSRC"
@@ -28,10 +43,31 @@
 					"name": "HashTGT"
 				},
 				{
-					"name": "Updates"
+					"name": "CurrentActive"
 				},
 				{
-					"name": "CurrentActive"
+					"name": "Alter"
+				},
+				{
+					"name": "NewCols"
+				},
+				{
+					"name": "Expire"
+				},
+				{
+					"name": "RemoveNULLS"
+				},
+				{
+					"name": "SELECT1"
+				},
+				{
+					"name": "Insert"
+				},
+				{
+					"name": "InORUp"
+				},
+				{
+					"name": "SELECT2"
 				}
 			],
 			"scriptLines": [
@@ -64,10 +100,84 @@
 				"     format: 'table') ~> SnowflakeSource",
 				"ADLS derive(hash = md5( customer_name,customer_address,phone,email)) ~> HashSRC",
 				"CurrentActive derive(hash = md5(CUSTOMER_NAME,CUSTOMER_ADDRESS,PHONE,EMAIL)) ~> HashTGT",
-				"HashSRC, HashTGT exists((ADLS@customer_id==SnowflakeSource@CUSTOMER_ID) && (HashSRC@hash!=HashTGT@hash),",
-				"     negate:false,",
-				"     broadcast: 'auto')~> Updates",
-				"SnowflakeSource filter(IS_CURRENT==true()) ~> CurrentActive"
+				"SnowflakeSource filter(IS_CURRENT==true()) ~> CurrentActive",
+				"SELECT1 alterRow(updateIf(1==1)) ~> Alter",
+				"RemoveNULLS derive(IS_CURRENT = 0,",
+				"          EFFECTIVE_TO_DT = toDate(last_updated_ts)) ~> NewCols",
+				"HashTGT, HashSRC join(SnowflakeSource@CUSTOMER_ID == ADLS@customer_id",
+				"     && HashTGT@hash != HashSRC@hash,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'both')~> Expire",
+				"Expire filter(isNull(HashSRC@hash)==false()) ~> RemoveNULLS",
+				"NewCols select(mapColumn(",
+				"          CUSTOMER_SK,",
+				"          CUSTOMER_ID = SnowflakeSource@CUSTOMER_ID,",
+				"          CUSTOMER_NAME = SnowflakeSource@CUSTOMER_NAME,",
+				"          CUSTOMER_ADDRESS = SnowflakeSource@CUSTOMER_ADDRESS,",
+				"          PHONE = SnowflakeSource@PHONE,",
+				"          EMAIL = SnowflakeSource@EMAIL,",
+				"          EFFECTIVE_FROM_DT,",
+				"          EFFECTIVE_TO_DT,",
+				"          IS_CURRENT",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SELECT1",
+				"HashSRC, HashTGT join(ADLS@customer_id == SnowflakeSource@CUSTOMER_ID",
+				"     && true() == IS_CURRENT,",
+				"     joinType:'left',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     broadcast: 'both')~> Insert",
+				"Insert filter(isNull(SnowflakeSource@CUSTOMER_ID)==true() || (HashSRC@hash!=HashTGT@hash)) ~> InORUp",
+				"InORUp select(mapColumn(",
+				"          CUSTOMER_ID = ADLS@customer_id,",
+				"          CUSTOMER_NAME = ADLS@customer_name,",
+				"          CUSTOMER_ADDRESS = ADLS@customer_address,",
+				"          PHONE = ADLS@phone,",
+				"          EMAIL = ADLS@email,",
+				"          EFFECTIVE_FROM_DT,",
+				"          EFFECTIVE_TO_DT,",
+				"          IS_CURRENT",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> SELECT2",
+				"Alter sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          ORDER_ID as decimal(38,0),",
+				"          CUSTOMER_ID as decimal(38,0),",
+				"          ORDER_DATE as date,",
+				"          AMOUNT as decimal(38,0),",
+				"          STATUS as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:false,",
+				"     updateable:true,",
+				"     upsertable:false,",
+				"     keys:['CUSTOMER_SK'],",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true) ~> SinkExpires",
+				"SELECT2 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     input(",
+				"          ORDER_ID as decimal(38,0),",
+				"          CUSTOMER_ID as decimal(38,0),",
+				"          ORDER_DATE as date,",
+				"          AMOUNT as decimal(38,0),",
+				"          STATUS as string",
+				"     ),",
+				"     deletable:false,",
+				"     insertable:true,",
+				"     updateable:false,",
+				"     upsertable:false,",
+				"     format: 'table',",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     stageInsert: true) ~> SinkInserts"
 			]
 		}
 	}
