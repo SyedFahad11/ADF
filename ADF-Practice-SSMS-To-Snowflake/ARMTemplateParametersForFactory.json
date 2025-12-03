@@ -36,7 +36,7 @@
 			"value": "https://adlsforcsv.dfs.core.windows.net/"
 		},
 		"SnowflakeConnector_properties_typeProperties_database": {
-			"value": "etlworks_csv"
+			"value": "ADHOC"
 		},
 		"SqlServerLinkedService_properties_typeProperties_server": {
 			"value": "PTDELL0026\\SQLEXPRESS"

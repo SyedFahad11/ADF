@@ -49,7 +49,7 @@
 		},
 		"SnowflakeConnector_properties_typeProperties_database": {
 			"type": "string",
-			"defaultValue": "etlworks_csv"
+			"defaultValue": "ADHOC"
 		},
 		"SqlServerLinkedService_properties_typeProperties_server": {
 			"type": "string",

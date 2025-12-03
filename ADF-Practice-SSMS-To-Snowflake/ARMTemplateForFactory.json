@@ -49,7 +49,7 @@
 		},
 		"SnowflakeConnector_properties_typeProperties_database": {
 			"type": "string",
-			"defaultValue": "etlworks_csv"
+			"defaultValue": "ADHOC"
 		},
 		"SqlServerLinkedService_properties_typeProperties_server": {
 			"type": "string",
@@ -73,338 +73,7 @@
 	},
 	"resources": [
 		{
-			"name": "[concat(parameters('factoryName'), '/ADLS To Snowflake with Dedup and Scripts')]",
-			"type": "Microsoft.DataFactory/factories/pipelines",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"activities": [
-					{
-						"name": "Copy data from ADLS to Snowflake",
-						"type": "Copy",
-						"state": "Inactive",
-						"onInactiveMarkAs": "Succeeded",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "DelimitedTextSource",
-								"storeSettings": {
-									"type": "AzureBlobFSReadSettings",
-									"recursive": true,
-									"wildcardFileName": "*_orders.csv",
-									"enablePartitionDiscovery": false
-								},
-								"formatSettings": {
-									"type": "DelimitedTextReadSettings"
-								}
-							},
-							"sink": {
-								"type": "SnowflakeV2Sink",
-								"importSettings": {
-									"type": "SnowflakeImportCopyCommand"
-								}
-							},
-							"enableStaging": true,
-							"stagingSettings": {
-								"linkedServiceName": {
-									"referenceName": "LinkedServiceForBlobStorage",
-									"type": "LinkedServiceReference"
-								},
-								"path": ""
-							}
-						},
-						"inputs": [
-							{
-								"referenceName": "Dataset_For_Script_Activity",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "SinkDatasetForADLSToSnowflake",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					},
-					{
-						"name": "Deduplication",
-						"type": "Script",
-						"state": "Inactive",
-						"onInactiveMarkAs": "Succeeded",
-						"dependsOn": [
-							{
-								"activity": "Copy data from ADLS to Snowflake",
-								"dependencyConditions": [
-									"Succeeded"
-								]
-							}
-						],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"linkedServiceName": {
-							"referenceName": "SnowflakeConnector",
-							"type": "LinkedServiceReference"
-						},
-						"typeProperties": {
-							"scripts": [
-								{
-									"type": "Query",
-									"text": "MERGE INTO ETLWORKS_CSV.CONSUMPTION.CONS  AS tgt\nUSING (\n    SELECT *\n    FROM (\n        SELECT \n            $1::INT AS order_id,\n            $2::INT AS customer_id,\n            $3::DATE AS order_date,\n            $4::FLOAT AS amount,\n            $5::STRING AS status,\n            ROW_NUMBER() OVER (PARTITION BY $1, $5 ORDER BY $3 DESC) AS rn\n        FROM ETLWORKS_CSV.LAND.TEMP\n    )\n    WHERE rn = 1\n) AS src\nON tgt.order_id = src.order_id AND tgt.status = src.status\nWHEN MATCHED \nAND ( tgt.customer_id <> src.customer_id\n        OR\n        tgt.order_date <> src.order_date\n        OR\n        tgt.amount <> src.amount\n    )\nTHEN\n    UPDATE SET\n        tgt.customer_id = src.customer_id,\n        tgt.order_date = src.order_date,\n        tgt.amount = src.amount\nWHEN NOT MATCHED THEN\n    INSERT (order_id, customer_id, order_date, amount, status)\n    VALUES (src.order_id, src.customer_id, src.order_date, src.amount, src.status);\n\n"
-								}
-							],
-							"scriptBlockExecutionTimeout": "02:00:00",
-							"treatDecimalAsString": true
-						}
-					},
-					{
-						"name": "Data flow1",
-						"type": "ExecuteDataFlow",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"dataflow": {
-								"referenceName": "Deduplication",
-								"type": "DataFlowReference",
-								"parameters": {},
-								"datasetParameters": {
-									"ADLS": {},
-									"SnowflakeSource": {},
-									"SnowflakeSink": {}
-								}
-							},
-							"staging": {},
-							"compute": {
-								"coreCount": 8,
-								"computeType": "General"
-							},
-							"traceLevel": "Fine"
-						}
-					}
-				],
-				"policy": {
-					"elapsedTimeMetric": {}
-				},
-				"annotations": [],
-				"lastPublishTime": "2025-11-24T11:48:38Z"
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
-				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]",
-				"[concat(variables('factoryId'), '/linkedServices/SnowflakeConnector')]",
-				"[concat(variables('factoryId'), '/dataflows/Deduplication')]",
-				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/AzureSQL_to_Snowflake')]",
-			"type": "Microsoft.DataFactory/factories/pipelines",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"activities": [
-					{
-						"name": "Copy data From SSMS To AzureSQL",
-						"type": "Copy",
-						"state": "Inactive",
-						"onInactiveMarkAs": "Succeeded",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "SqlServerSource",
-								"queryTimeout": "02:00:00",
-								"partitionOption": "None"
-							},
-							"sink": {
-								"type": "AzureSqlSink",
-								"writeBehavior": "insert",
-								"sqlWriterUseTableLock": false
-							},
-							"enableStaging": false,
-							"translator": {
-								"type": "TabularTranslator",
-								"typeConversion": true,
-								"typeConversionSettings": {
-									"allowDataTruncation": true,
-									"treatBooleanAsNumber": false
-								}
-							}
-						},
-						"inputs": [
-							{
-								"referenceName": "SourceSQLServer",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "SinkDatasetForSSMStoAzureSQL",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					},
-					{
-						"name": "Copy data from AzureSQL To Snowflake",
-						"type": "Copy",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "AzureSqlSource",
-								"queryTimeout": "02:00:00",
-								"partitionOption": "None"
-							},
-							"sink": {
-								"type": "SnowflakeV2Sink",
-								"importSettings": {
-									"type": "SnowflakeImportCopyCommand"
-								}
-							},
-							"enableStaging": true,
-							"stagingSettings": {
-								"linkedServiceName": {
-									"referenceName": "LinkedServiceForBlobStorage",
-									"type": "LinkedServiceReference"
-								},
-								"path": "wideworldimporters"
-							}
-						},
-						"inputs": [
-							{
-								"referenceName": "Source_Dataset_For_AzureSQL_To_Snowflake",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "SinkDatasetForBlobToSnowflake",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					}
-				],
-				"policy": {
-					"elapsedTimeMetric": {}
-				},
-				"annotations": [],
-				"lastPublishTime": "2025-10-31T04:35:26Z"
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/SourceSQLServer')]",
-				"[concat(variables('factoryId'), '/datasets/SinkDatasetForSSMStoAzureSQL')]",
-				"[concat(variables('factoryId'), '/datasets/Source_Dataset_For_AzureSQL_To_Snowflake')]",
-				"[concat(variables('factoryId'), '/datasets/SinkDatasetForBlobToSnowflake')]",
-				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/Direct Movement')]",
-			"type": "Microsoft.DataFactory/factories/pipelines",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"activities": [
-					{
-						"name": "Copy data",
-						"type": "Copy",
-						"dependsOn": [],
-						"policy": {
-							"timeout": "0.12:00:00",
-							"retry": 0,
-							"retryIntervalInSeconds": 30,
-							"secureOutput": false,
-							"secureInput": false
-						},
-						"userProperties": [],
-						"typeProperties": {
-							"source": {
-								"type": "SqlServerSource",
-								"queryTimeout": "02:00:00",
-								"partitionOption": "None"
-							},
-							"sink": {
-								"type": "SnowflakeV2Sink",
-								"importSettings": {
-									"type": "SnowflakeImportCopyCommand"
-								}
-							},
-							"enableStaging": true,
-							"stagingSettings": {
-								"linkedServiceName": {
-									"referenceName": "LinkedServiceForBlobStorage",
-									"type": "LinkedServiceReference"
-								},
-								"path": ""
-							}
-						},
-						"inputs": [
-							{
-								"referenceName": "SourceSQLServer",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						],
-						"outputs": [
-							{
-								"referenceName": "SinkDatasetForBlobToSnowflake",
-								"type": "DatasetReference",
-								"parameters": {}
-							}
-						]
-					}
-				],
-				"policy": {
-					"elapsedTimeMetric": {}
-				},
-				"annotations": [],
-				"lastPublishTime": "2025-10-30T11:04:21Z"
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/SourceSQLServer')]",
-				"[concat(variables('factoryId'), '/datasets/SinkDatasetForBlobToSnowflake')]",
-				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/SSMS_to_Snowflake_v1')]",
+			"name": "[concat(parameters('factoryName'), '/1-SHIR Simple')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -566,7 +235,74 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/SSMS_to_Snowflake_v2')]",
+			"name": "[concat(parameters('factoryName'), '/2-Direct Movement')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "SnowflakeV2Sink",
+								"importSettings": {
+									"type": "SnowflakeImportCopyCommand"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "LinkedServiceForBlobStorage",
+									"type": "LinkedServiceReference"
+								},
+								"path": ""
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "SourceSQLServer",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SinkDatasetForBlobToSnowflake",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-10-30T11:04:21Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/SourceSQLServer')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForBlobToSnowflake')]",
+				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/3-SHIR Parameterized')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -772,6 +508,305 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/4-AzureSQL to Snowflake')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data From SSMS To AzureSQL",
+						"type": "Copy",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "SqlServerSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "AzureSqlSink",
+								"writeBehavior": "insert",
+								"sqlWriterUseTableLock": false
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "SourceSQLServer",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SinkDatasetForSSMStoAzureSQL",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "Copy data from AzureSQL To Snowflake",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"sink": {
+								"type": "SnowflakeV2Sink",
+								"importSettings": {
+									"type": "SnowflakeImportCopyCommand"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "LinkedServiceForBlobStorage",
+									"type": "LinkedServiceReference"
+								},
+								"path": "wideworldimporters"
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "Source_Dataset_For_AzureSQL_To_Snowflake",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SinkDatasetForBlobToSnowflake",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-10-31T04:35:26Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/SourceSQLServer')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForSSMStoAzureSQL')]",
+				"[concat(variables('factoryId'), '/datasets/Source_Dataset_For_AzureSQL_To_Snowflake')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForBlobToSnowflake')]",
+				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/5-ADLS To Snowflake with Dedup and SCD-02')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data from ADLS to Snowflake",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "DelimitedTextSource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFileName": "_orders.csv",
+									"enablePartitionDiscovery": false
+								},
+								"formatSettings": {
+									"type": "DelimitedTextReadSettings"
+								}
+							},
+							"sink": {
+								"type": "SnowflakeV2Sink",
+								"importSettings": {
+									"type": "SnowflakeImportCopyCommand"
+								}
+							},
+							"enableStaging": true,
+							"stagingSettings": {
+								"linkedServiceName": {
+									"referenceName": "LinkedServiceForBlobStorage",
+									"type": "LinkedServiceReference"
+								},
+								"path": ""
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "Dataset_For_Script_Activity",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "Deduplication",
+						"type": "Script",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [
+							{
+								"activity": "Copy data from ADLS to Snowflake",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "SnowflakeConnector",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": "MERGE INTO ETLWORKS_CSV.CONSUMPTION.CONS  AS tgt\nUSING (\n    SELECT *\n    FROM (\n        SELECT \n            $1::INT AS order_id,\n            $2::INT AS customer_id,\n            $3::DATE AS order_date,\n            $4::FLOAT AS amount,\n            $5::STRING AS status,\n            ROW_NUMBER() OVER (PARTITION BY $1, $5 ORDER BY $3 DESC) AS rn\n        FROM ETLWORKS_CSV.LAND.TEMP\n    )\n    WHERE rn = 1\n) AS src\nON tgt.order_id = src.order_id AND tgt.status = src.status\nWHEN MATCHED \nAND ( tgt.customer_id <> src.customer_id\n        OR\n        tgt.order_date <> src.order_date\n        OR\n        tgt.amount <> src.amount\n    )\nTHEN\n    UPDATE SET\n        tgt.customer_id = src.customer_id,\n        tgt.order_date = src.order_date,\n        tgt.amount = src.amount\nWHEN NOT MATCHED THEN\n    INSERT (order_id, customer_id, order_date, amount, status)\n    VALUES (src.order_id, src.customer_id, src.order_date, src.amount, src.status);\n\n"
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00",
+							"treatDecimalAsString": true
+						}
+					},
+					{
+						"name": "Dedup Data flow",
+						"type": "ExecuteDataFlow",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Deduplication-And-Merge",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"ADLS": {},
+									"SnowflakeSource": {},
+									"SnowflakeSink": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					},
+					{
+						"name": "SCD-02",
+						"type": "ExecuteDataFlow",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "SCD-02",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"ADLS": {},
+									"SnowflakeSource": {},
+									"SinkExpires": {},
+									"SinkInserts": {}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2025-11-24T11:48:38Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]",
+				"[concat(variables('factoryId'), '/linkedServices/SnowflakeConnector')]",
+				"[concat(variables('factoryId'), '/dataflows/Deduplication-And-Merge')]",
+				"[concat(variables('factoryId'), '/dataflows/SCD-02')]",
+				"[concat(variables('factoryId'), '/linkedServices/LinkedServiceForBlobStorage')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/DatasetForLookup')]",
 			"type": "Microsoft.DataFactory/factories/datasets",
 			"apiVersion": "2018-06-01",
@@ -812,9 +847,7 @@
 				"type": "DelimitedText",
 				"typeProperties": {
 					"location": {
-						"type": "AzureBlobFSLocation",
-						"fileName": "final_orders.csv",
-						"fileSystem": "csvfiles"
+						"type": "AzureBlobFSLocation"
 					},
 					"columnDelimiter": ",",
 					"rowDelimiter": "\n",
@@ -894,7 +927,7 @@
 				],
 				"typeProperties": {
 					"schema": "LAND",
-					"table": "TEMP"
+					"table": "STG_CUSTOMER_DAILY"
 				}
 			},
 			"dependsOn": [
@@ -1466,7 +1499,7 @@
 				"pipelines": [
 					{
 						"pipelineReference": {
-							"referenceName": "ADLS To Snowflake with Dedup and Scripts",
+							"referenceName": "5-ADLS To Snowflake with Dedup and SCD-02",
 							"type": "PipelineReference"
 						},
 						"parameters": {}
@@ -1484,7 +1517,7 @@
 				}
 			},
 			"dependsOn": [
-				"[concat(variables('factoryId'), '/pipelines/ADLS To Snowflake with Dedup and Scripts')]"
+				"[concat(variables('factoryId'), '/pipelines/5-ADLS To Snowflake with Dedup and SCD-02')]"
 			]
 		},
 		{
@@ -1498,7 +1531,7 @@
 			"dependsOn": []
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/Deduplication')]",
+			"name": "[concat(parameters('factoryName'), '/Deduplication-And-Merge')]",
 			"type": "Microsoft.DataFactory/factories/dataflows",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -1607,6 +1640,202 @@
 						"          AMOUNT = amount,",
 						"          STATUS = status",
 						"     )) ~> SnowflakeSink"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Dataset_For_Script_Activity')]",
+				"[concat(variables('factoryId'), '/datasets/SinkDatasetForADLSToSnowflake')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/SCD-02')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Dataset_For_Script_Activity",
+								"type": "DatasetReference"
+							},
+							"name": "ADLS"
+						},
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SnowflakeSource"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SinkExpires"
+						},
+						{
+							"dataset": {
+								"referenceName": "SinkDatasetForADLSToSnowflake",
+								"type": "DatasetReference"
+							},
+							"name": "SinkInserts"
+						}
+					],
+					"transformations": [
+						{
+							"name": "HashSRC"
+						},
+						{
+							"name": "HashTGT"
+						},
+						{
+							"name": "CurrentActive"
+						},
+						{
+							"name": "Alter"
+						},
+						{
+							"name": "NewCols"
+						},
+						{
+							"name": "Expire"
+						},
+						{
+							"name": "RemoveNULLS"
+						},
+						{
+							"name": "SELECT1"
+						},
+						{
+							"name": "Insert"
+						},
+						{
+							"name": "InORUp"
+						},
+						{
+							"name": "SELECT2"
+						},
+						{
+							"name": "derivedColumn1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          customer_id as string,",
+						"          customer_name as string,",
+						"          customer_address as string,",
+						"          phone as string,",
+						"          email as string,",
+						"          last_updated_ts as timestamp 'yyyy-MM-dd\\'T\\'HH:mm:ss\\'Z\\'',",
+						"          op_type as string",
+						"     ),",
+						"     allowSchemaDrift: false,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     wildcardPaths:['customers_*.csv']) ~> ADLS",
+						"source(output(",
+						"          CUSTOMER_SK as decimal(38,0),",
+						"          CUSTOMER_ID as string,",
+						"          CUSTOMER_NAME as string,",
+						"          CUSTOMER_ADDRESS as string,",
+						"          PHONE as string,",
+						"          EMAIL as string,",
+						"          EFFECTIVE_FROM_DT as date,",
+						"          EFFECTIVE_TO_DT as date,",
+						"          IS_CURRENT as boolean",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     format: 'table') ~> SnowflakeSource",
+						"ADLS derive(hash = md5( customer_name,customer_address,phone,email)) ~> HashSRC",
+						"CurrentActive derive(hash = md5(CUSTOMER_NAME,CUSTOMER_ADDRESS,PHONE,EMAIL)) ~> HashTGT",
+						"SnowflakeSource filter(IS_CURRENT==true()) ~> CurrentActive",
+						"SELECT1 alterRow(updateIf(1==1)) ~> Alter",
+						"RemoveNULLS derive(IS_CURRENT = 0,",
+						"          EFFECTIVE_TO_DT = toDate(last_updated_ts)) ~> NewCols",
+						"HashTGT, HashSRC join(SnowflakeSource@CUSTOMER_ID == ADLS@customer_id",
+						"     && HashTGT@hash != HashSRC@hash,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'both')~> Expire",
+						"Expire filter(isNull(HashSRC@hash)==false()) ~> RemoveNULLS",
+						"NewCols select(mapColumn(",
+						"          CUSTOMER_SK,",
+						"          CUSTOMER_ID = SnowflakeSource@CUSTOMER_ID,",
+						"          CUSTOMER_NAME = SnowflakeSource@CUSTOMER_NAME,",
+						"          CUSTOMER_ADDRESS = SnowflakeSource@CUSTOMER_ADDRESS,",
+						"          PHONE = SnowflakeSource@PHONE,",
+						"          EMAIL = SnowflakeSource@EMAIL,",
+						"          EFFECTIVE_FROM_DT,",
+						"          EFFECTIVE_TO_DT,",
+						"          IS_CURRENT",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SELECT1",
+						"HashSRC, HashTGT join(ADLS@customer_id == SnowflakeSource@CUSTOMER_ID",
+						"     && true() == IS_CURRENT,",
+						"     joinType:'left',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'both')~> Insert",
+						"Insert filter(isNull(SnowflakeSource@CUSTOMER_ID)==true() || (HashSRC@hash!=HashTGT@hash)) ~> InORUp",
+						"derivedColumn1 select(mapColumn(",
+						"          CUSTOMER_ID = ADLS@customer_id,",
+						"          CUSTOMER_NAME = ADLS@customer_name,",
+						"          CUSTOMER_ADDRESS = ADLS@customer_address,",
+						"          PHONE = ADLS@phone,",
+						"          EMAIL = ADLS@email,",
+						"          EFFECTIVE_FROM_DT,",
+						"          EFFECTIVE_TO_DT,",
+						"          IS_CURRENT",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> SELECT2",
+						"InORUp derive(EFFECTIVE_FROM_DT = iifNull(last_updated_ts,currentDate()),",
+						"          IS_CURRENT = 1,",
+						"          EFFECTIVE_TO_DT = toDate('9999-12-31')) ~> derivedColumn1",
+						"Alter sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          ORDER_ID as decimal(38,0),",
+						"          CUSTOMER_ID as decimal(38,0),",
+						"          ORDER_DATE as date,",
+						"          AMOUNT as decimal(38,0),",
+						"          STATUS as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:false,",
+						"     updateable:true,",
+						"     upsertable:false,",
+						"     keys:['CUSTOMER_SK'],",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true) ~> SinkExpires",
+						"SELECT2 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     input(",
+						"          ORDER_ID as decimal(38,0),",
+						"          CUSTOMER_ID as decimal(38,0),",
+						"          ORDER_DATE as date,",
+						"          AMOUNT as decimal(38,0),",
+						"          STATUS as string",
+						"     ),",
+						"     deletable:false,",
+						"     insertable:true,",
+						"     updateable:false,",
+						"     upsertable:false,",
+						"     format: 'table',",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     stageInsert: true) ~> SinkInserts"
 					]
 				}
 			},

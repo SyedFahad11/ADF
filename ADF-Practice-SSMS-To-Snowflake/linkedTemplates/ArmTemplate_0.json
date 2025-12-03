@@ -49,7 +49,7 @@
 		},
 		"SnowflakeConnector_properties_typeProperties_database": {
 			"type": "string",
-			"defaultValue": "etlworks_csv"
+			"defaultValue": "ADHOC"
 		},
 		"SqlServerLinkedService_properties_typeProperties_server": {
 			"type": "string",
@@ -206,9 +206,7 @@
 				"type": "DelimitedText",
 				"typeProperties": {
 					"location": {
-						"type": "AzureBlobFSLocation",
-						"fileName": "final_orders.csv",
-						"fileSystem": "csvfiles"
+						"type": "AzureBlobFSLocation"
 					},
 					"columnDelimiter": ",",
 					"rowDelimiter": "\n",
@@ -288,7 +286,7 @@
 				],
 				"typeProperties": {
 					"schema": "LAND",
-					"table": "TEMP"
+					"table": "STG_CUSTOMER_DAILY"
 				}
 			},
 			"dependsOn": [
