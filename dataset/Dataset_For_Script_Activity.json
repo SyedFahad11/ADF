@@ -1,9 +1,16 @@
 {
 	"name": "Dataset_For_Script_Activity",
 	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LinkedService_for_Script_activity",
+			"type": "LinkedServiceReference"
+		},
 		"annotations": [],
 		"type": "DelimitedText",
 		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation"
+			},
 			"columnDelimiter": ",",
 			"rowDelimiter": "\n",
 			"escapeChar": "\\",
