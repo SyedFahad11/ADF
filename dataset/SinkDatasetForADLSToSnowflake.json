@@ -41,7 +41,7 @@
 		],
 		"typeProperties": {
 			"schema": "LAND",
-			"table": "DIM_CUSTOMER"
+			"table": "STG_CUSTOMER_DAILY"
 		}
 	},
 	"type": "Microsoft.DataFactory/factories/datasets"

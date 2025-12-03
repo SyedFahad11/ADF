@@ -5,8 +5,6 @@
 			{
 				"name": "Copy data from ADLS to Snowflake",
 				"type": "Copy",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
@@ -22,7 +20,6 @@
 						"storeSettings": {
 							"type": "AzureBlobFSReadSettings",
 							"recursive": true,
-							"wildcardFileName": "*_orders.csv",
 							"enablePartitionDiscovery": false
 						},
 						"formatSettings": {
@@ -122,6 +119,8 @@
 			{
 				"name": "SCD-02",
 				"type": "ExecuteDataFlow",
+				"state": "Inactive",
+				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [],
 				"policy": {
 					"timeout": "0.12:00:00",
